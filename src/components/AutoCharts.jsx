@@ -116,7 +116,7 @@ const AutoCharts = ({ chartData, fileName, rowCount, colCount }) => {
           <div className="glass-card" style={{ height: '400px', display: 'flex', flexDirection: 'column' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '1.5rem' }}>
               <BarChart3 size={20} color="var(--primary)" />
-              <h3 style={{ margin: 0 }}>Category Distribution</h3>
+              <h3 style={{ margin: 0 }}>{chartData.bar.datasets[0].label}</h3>
             </div>
             <div style={{ flex: 1 }}>
               <Bar data={chartData.bar} options={commonOptions} />
@@ -142,7 +142,7 @@ const AutoCharts = ({ chartData, fileName, rowCount, colCount }) => {
           <div className="glass-card" style={{ height: '400px', display: 'flex', flexDirection: 'column' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '1.5rem' }}>
               <PieChart size={20} color="var(--primary)" />
-              <h3 style={{ margin: 0 }}>Proportional Breakdown</h3>
+              <h3 style={{ margin: 0 }}>{chartData.pie.datasets[0].label}</h3>
             </div>
             <div style={{ flex: 1, display: 'flex', justifyContent: 'center' }}>
               <div style={{ width: '80%' }}>

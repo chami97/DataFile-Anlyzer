@@ -260,24 +260,70 @@ export const getSmartInsights = (data) => {
     }
   });
 
-  // 2. Category Analysis (Top Categories)
+  // 2. Category Analysis (Top Categories with Aggregation)
+  const dataTypes = {};
+  columns.forEach(col => {
+    const values = data.map(row => row[col]).filter(v => v !== null && v !== undefined && v !== '');
+    if (values.length > 0) {
+      dataTypes[col] = values.every(v => typeof v === 'number') ? 'numeric' : 'text';
+    }
+  });
+
+  const numericColumns = columns.filter(col => {
+    const lower = col.toLowerCase();
+    const isExcluded = excludeList.some(ex => lower.includes(ex));
+    return dataTypes[col] === 'numeric' && !isExcluded;
+  });
+
   columns.forEach(col => {
     const values = data.map(row => row[col]).filter(v => v !== null && v !== undefined && v !== '');
     const uniqueValues = new Set(values);
     
-    // If it's a "Categorical" column (not too many unique values, mostly strings)
-    if (uniqueValues.size > 1 && uniqueValues.size < 25 && typeof values[0] === 'string') {
-      const counts = {};
-      values.forEach(v => counts[v] = (counts[v] || 0) + 1);
-      
-      const sorted = Object.entries(counts)
-        .sort((a, b) => b[1] - a[1])
-        .slice(0, 5)
-        .map(([name, count]) => ({ name, count }));
+    // Detected as categorical if mostly strings and reasonably low cardinality (or we take top 10)
+    if (uniqueValues.size > 1 && uniqueValues.size < 100 && typeof values[0] === 'string') {
+      // Find the best numeric column to aggregate with this category
+      // Priority: Money fields > Quantity > others
+      const bestNumeric = numericColumns.sort((a, b) => {
+        const aLow = a.toLowerCase();
+        const bLow = b.toLowerCase();
+        const moneyKeywords = ['price', 'revenue', 'amount', 'salary', 'cost', 'total', 'sales'];
+        const aScore = moneyKeywords.some(k => aLow.includes(k)) ? 10 : 0;
+        const bScore = moneyKeywords.some(k => bLow.includes(k)) ? 10 : 0;
+        return bScore - aScore;
+      })[0];
+
+      const aggregations = {};
+      data.forEach(row => {
+        const catValue = row[col];
+        if (catValue === null || catValue === undefined || catValue === '') return;
+        
+        if (!aggregations[catValue]) {
+          aggregations[catValue] = { count: 0, sum: 0, avg: 0 };
+        }
+        
+        aggregations[catValue].count += 1;
+        if (bestNumeric && typeof row[bestNumeric] === 'number') {
+          aggregations[catValue].sum += row[bestNumeric];
+        }
+      });
+
+      // Calculate averages and sort by Sum (or Count if no sum)
+      const sortedEntries = Object.entries(aggregations)
+        .map(([name, stats]) => ({
+          name,
+          count: stats.count,
+          sum: stats.sum,
+          avg: stats.sum / stats.count,
+          metricLabel: bestNumeric ? `Total ${bestNumeric}` : 'Record Count',
+          metricName: bestNumeric || 'Count'
+        }))
+        .sort((a, b) => (bestNumeric ? b.sum - a.sum : b.count - a.count))
+        .slice(0, 10); // Show top 10
 
       categories.push({
         label: col.charAt(0).toUpperCase() + col.slice(1),
-        data: sorted
+        bestNumeric: bestNumeric,
+        data: sortedEntries
       });
     }
   });
@@ -323,14 +369,16 @@ export const getChartData = (data) => {
   const insights = getSmartInsights(data);
   const chartData = {};
 
-  // 1. Bar Chart: Top 5 of first category
+  // 1. Bar Chart: Aggregated Data (Sum by Category)
   if (insights.categories.length > 0) {
     const mainCategory = insights.categories[0];
+    const hasSum = mainCategory.bestNumeric;
+    
     chartData.bar = {
       labels: mainCategory.data.map(item => item.name),
       datasets: [{
-        label: mainCategory.label,
-        data: mainCategory.data.map(item => item.count),
+        label: mainCategory.data[0]?.metricLabel || 'Records',
+        data: mainCategory.data.map(item => hasSum ? item.sum : item.count),
         backgroundColor: 'rgba(99, 102, 241, 0.7)',
         borderColor: 'rgba(99, 102, 241, 1)',
         borderWidth: 1,
@@ -355,18 +403,26 @@ export const getChartData = (data) => {
 
   // 3. Pie Chart: Distribution
   if (insights.categories.length > 0) {
+    // Try to find a secondary category or different aggregation if possible
     const pieCategory = insights.categories.length > 1 ? insights.categories[1] : insights.categories[0];
+    const hasSum = pieCategory.bestNumeric;
+
     chartData.pie = {
       labels: pieCategory.data.map(item => item.name),
       datasets: [{
-        label: pieCategory.label,
-        data: pieCategory.data.map(item => item.count),
+        label: pieCategory.data[0]?.metricLabel || 'Distribution',
+        data: pieCategory.data.map(item => hasSum ? item.sum : item.count),
         backgroundColor: [
           'rgba(99, 102, 241, 0.7)',
           'rgba(16, 185, 129, 0.7)',
           'rgba(245, 158, 11, 0.7)',
           'rgba(239, 68, 68, 0.7)',
           'rgba(139, 92, 246, 0.7)',
+          'rgba(6, 182, 212, 0.7)',
+          'rgba(236, 72, 153, 0.7)',
+          'rgba(249, 115, 22, 0.7)',
+          'rgba(107, 114, 128, 0.7)',
+          'rgba(45, 212, 191, 0.7)',
         ],
         borderWidth: 1,
       }]
