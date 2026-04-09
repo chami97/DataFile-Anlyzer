@@ -1,0 +1,11 @@
+id,name,age,city,salary,joining_date
+1,John,30,New York,50000,2024-01-01
+2,Jane,25,London,60000,2024-01-02
+3,Bob,35,Paris,55000,2024-01-03
+4,Alice,28,Berlin,65000,2024-01-04
+5,Charlie,32,Tokyo,70000,2024-01-05
+6,Diana,27,Sydney,52000,2024-01-06
+7,Edward,40,New York,80000,2024-01-07
+8,Fiona,22,London,45000,2024-01-08
+9,George,45,Paris,90000,2024-01-09
+10,Hannah,29,Berlin,62000,2024-01-10
